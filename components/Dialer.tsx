@@ -91,6 +91,11 @@ const Dialer: React.FC<DialerProps> = () => {
             setIsCallInProgress(false);
             callRef.current = null;
             stopCallTimer();
+
+            // Reset status to "Ready" after a short delay
+            setTimeout(() => {
+              setStatus("Ready");
+            }, 1500); // 1.5 seconds delay
           });
 
           call.on("error", (error) => {
@@ -100,6 +105,12 @@ const Dialer: React.FC<DialerProps> = () => {
             setIsCallInProgress(false);
             callRef.current = null;
             stopCallTimer();
+
+            // Reset status to "Ready" after a short delay
+            setTimeout(() => {
+              setStatus("Ready");
+              setError(null);
+            }, 3000); // 3 seconds delay for errors
           });
         });
 
@@ -228,6 +239,11 @@ const Dialer: React.FC<DialerProps> = () => {
         setIsMuted(false);
         callRef.current = null;
         stopCallTimer();
+
+        // Reset status to "Ready" after a short delay
+        setTimeout(() => {
+          setStatus("Ready");
+        }, 1500); // 1.5 seconds delay
       });
 
       call.on("error", (error) => {
@@ -238,11 +254,23 @@ const Dialer: React.FC<DialerProps> = () => {
         setIsMuted(false);
         callRef.current = null;
         stopCallTimer();
+
+        // Reset status to "Ready" after a short delay
+        setTimeout(() => {
+          setStatus("Ready");
+          setError(null);
+        }, 3000); // 3 seconds delay for errors
       });
     } catch (error: any) {
       console.error("Error making call:", error);
       setStatus(`Call failed`);
       setError(`${error.message || "Unknown error"}`);
+
+      // Reset status to "Ready" after a short delay
+      setTimeout(() => {
+        setStatus("Ready");
+        setError(null);
+      }, 3000); // 3 seconds delay for errors
     }
   };
 
