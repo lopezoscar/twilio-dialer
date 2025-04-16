@@ -1,265 +1,276 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
-import { type Call, Device, type ConnectOptions } from "@twilio/voice-sdk"
-import { getCallHistory, addCallToHistory, formatTimestamp, type CallHistoryEntry } from "../utils/call-history"
+import type React from "react";
+import { useState, useEffect, useRef } from "react";
+import { type Call, Device, type ConnectOptions } from "@twilio/voice-sdk";
+import {
+  getCallHistory,
+  addCallToHistory,
+  formatTimestamp,
+  type CallHistoryEntry,
+} from "../utils/call-history";
 
-type DialerProps = {}
+type DialerProps = {};
 
 const Dialer: React.FC<DialerProps> = () => {
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [status, setStatus] = useState("Initializing...")
-  const [isCallInProgress, setIsCallInProgress] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [callDuration, setCallDuration] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([])
-  const deviceRef = useRef<Device | null>(null)
-  const callRef = useRef<Call | null>(null)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [status, setStatus] = useState("Initializing...");
+  const [isCallInProgress, setIsCallInProgress] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
+  const deviceRef = useRef<Device | null>(null);
+  const callRef = useRef<Call | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load call history on component mount
   useEffect(() => {
-    setCallHistory(getCallHistory())
-  }, [])
+    setCallHistory(getCallHistory());
+  }, []);
 
   useEffect(() => {
     // Initialize Twilio device on component mount
     const setupDevice = async () => {
       try {
-        setStatus("Fetching token...")
-        setError(null)
+        setStatus("Fetching token...");
+        setError(null);
 
         // Try the main token endpoint first
-        let token = await fetchToken("/api/token")
+        let token = await fetchToken("/api/token");
 
         // If that fails, try the simple token endpoint
         if (!token) {
-          token = await fetchToken("/api/simple-token")
+          token = await fetchToken("/api/simple-token");
         }
 
         // If we still don't have a token, throw an error
         if (!token) {
-          throw new Error("Failed to get a valid token from either endpoint")
+          throw new Error("Failed to get a valid token from either endpoint");
         }
 
-        setStatus("Initializing device...")
+        setStatus("Initializing device...");
 
         // Initialize the device with the new SDK
         const device = new Device(token, {
           codecPreferences: ["opus", "pcmu"],
           enableRingingState: true,
           debug: true, // Enable debug logging
-        })
+        });
 
         // Set up event listeners
         device.on("registered", () => {
-          setStatus("Ready")
-          console.log("Twilio device is registered")
-        })
+          setStatus("Ready");
+          console.log("Twilio device is registered");
+        });
 
         device.on("registrationFailed", (error) => {
-          setStatus(`Registration Error`)
-          setError(`Registration failed: ${error.message}`)
-          console.error("Twilio device registration error:", error)
-        })
+          setStatus(`Registration Error`);
+          setError(`Registration failed: ${error.message}`);
+          console.error("Twilio device registration error:", error);
+        });
 
         device.on("error", (error) => {
-          setStatus(`Device Error`)
-          setError(`Twilio error: ${error.message}`)
-          console.error("Twilio device error:", error)
-        })
+          setStatus(`Device Error`);
+          setError(`Twilio error: ${error.message}`);
+          console.error("Twilio device error:", error);
+        });
 
         device.on("incoming", (call) => {
-          callRef.current = call
-          setStatus("Incoming call...")
+          callRef.current = call;
+          setStatus("Incoming call...");
 
           call.on("accept", () => {
-            setStatus("Connected")
-            setIsCallInProgress(true)
-            startCallTimer()
-          })
+            setStatus("Connected");
+            setIsCallInProgress(true);
+            startCallTimer();
+          });
 
           call.on("disconnect", () => {
-            setStatus("Call ended")
-            setIsCallInProgress(false)
-            callRef.current = null
-            stopCallTimer()
-          })
+            setStatus("Call ended");
+            setIsCallInProgress(false);
+            callRef.current = null;
+            stopCallTimer();
+          });
 
           call.on("error", (error) => {
-            setStatus(`Call Error`)
-            setError(`Call error: ${error.message}`)
-            console.error("Call error:", error)
-            setIsCallInProgress(false)
-            callRef.current = null
-            stopCallTimer()
-          })
-        })
+            setStatus(`Call Error`);
+            setError(`Call error: ${error.message}`);
+            console.error("Call error:", error);
+            setIsCallInProgress(false);
+            callRef.current = null;
+            stopCallTimer();
+          });
+        });
 
         // Store the device reference
-        deviceRef.current = device
+        deviceRef.current = device;
 
         // Register the device
-        await device.register()
+        await device.register();
       } catch (error: any) {
-        console.error("Error setting up Twilio device:", error)
-        setStatus(`Setup failed`)
-        setError(`${error.message || "Unknown error"}`)
+        console.error("Error setting up Twilio device:", error);
+        setStatus(`Setup failed`);
+        setError(`${error.message || "Unknown error"}`);
       }
-    }
+    };
 
     // Helper function to fetch a token from an endpoint
     const fetchToken = async (endpoint: string): Promise<string | null> => {
       try {
-        console.log(`Fetching token from ${endpoint}...`)
+        console.log(`Fetching token from ${endpoint}...`);
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-        })
+        });
 
         if (!response.ok) {
-          console.error(`Error from ${endpoint}:`, response.status, response.statusText)
-          const errorText = await response.text()
-          console.error(`Response body:`, errorText)
-          return null
+          console.error(
+            `Error from ${endpoint}:`,
+            response.status,
+            response.statusText
+          );
+          const errorText = await response.text();
+          console.error(`Response body:`, errorText);
+          return null;
         }
 
-        const data = await response.json()
+        const data = await response.json();
         if (!data.token) {
-          console.error(`No token in response from ${endpoint}:`, data)
-          return null
+          console.error(`No token in response from ${endpoint}:`, data);
+          return null;
         }
 
-        console.log(`Successfully got token from ${endpoint}`)
-        return data.token
+        console.log(`Successfully got token from ${endpoint}`);
+        return data.token;
       } catch (error) {
-        console.error(`Failed to fetch token from ${endpoint}:`, error)
-        return null
+        console.error(`Failed to fetch token from ${endpoint}:`, error);
+        return null;
       }
-    }
+    };
 
-    setupDevice()
+    setupDevice();
 
     // Cleanup on component unmount
     return () => {
       if (callRef.current) {
-        callRef.current.disconnect()
+        callRef.current.disconnect();
       }
       if (deviceRef.current) {
-        deviceRef.current.destroy()
+        deviceRef.current.destroy();
       }
-      stopCallTimer()
-    }
-  }, [])
+      stopCallTimer();
+    };
+  }, []);
 
   const startCallTimer = () => {
-    setCallDuration(0)
-    stopCallTimer()
+    setCallDuration(0);
+    stopCallTimer();
     timerRef.current = setInterval(() => {
-      setCallDuration((prev) => prev + 1)
-    }, 1000)
-  }
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+  };
 
   const stopCallTimer = () => {
     if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }
+  };
 
   const formatCallDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
   const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Allow only numbers, +, and spaces
-    const value = e.target.value.replace(/[^\d+\s-]/g, "")
-    setPhoneNumber(value)
-  }
+    const value = e.target.value.replace(/[^\d+\s-]/g, "");
+    setPhoneNumber(value);
+  };
 
   const handleCall = async () => {
-    if (!deviceRef.current || !phoneNumber) return
+    if (!deviceRef.current || !phoneNumber) return;
 
     try {
-      setStatus("Calling...")
-      setError(null)
+      setStatus("Calling...");
+      setError(null);
 
       // Make the call with the new SDK
       const connectOptions: ConnectOptions = {
         params: {
           To: phoneNumber,
         },
-      }
+      };
 
-      const call = await deviceRef.current.connect(connectOptions)
-      callRef.current = call
+      const call = await deviceRef.current.connect(connectOptions);
+      callRef.current = call;
 
       // Set up call event listeners
       call.on("accept", () => {
-        setStatus("Connected")
-        setIsCallInProgress(true)
-        startCallTimer()
-      })
+        setStatus("Connected");
+        setIsCallInProgress(true);
+        startCallTimer();
+      });
 
       call.on("disconnect", () => {
         // Add to call history when the call ends
-        const updatedHistory = addCallToHistory(phoneNumber, callDuration)
-        setCallHistory(updatedHistory)
+        const updatedHistory = addCallToHistory(phoneNumber, callDuration);
+        setCallHistory(updatedHistory);
 
-        setStatus("Call ended")
-        setIsCallInProgress(false)
-        setIsMuted(false)
-        callRef.current = null
-        stopCallTimer()
-      })
+        setStatus("Call ended");
+        setIsCallInProgress(false);
+        setIsMuted(false);
+        callRef.current = null;
+        stopCallTimer();
+      });
 
       call.on("error", (error) => {
-        setStatus(`Call Error`)
-        setError(`Call error: ${error.message}`)
-        console.error("Call error:", error)
-        setIsCallInProgress(false)
-        setIsMuted(false)
-        callRef.current = null
-        stopCallTimer()
-      })
+        setStatus(`Call Error`);
+        setError(`Call error: ${error.message}`);
+        console.error("Call error:", error);
+        setIsCallInProgress(false);
+        setIsMuted(false);
+        callRef.current = null;
+        stopCallTimer();
+      });
     } catch (error: any) {
-      console.error("Error making call:", error)
-      setStatus(`Call failed`)
-      setError(`${error.message || "Unknown error"}`)
+      console.error("Error making call:", error);
+      setStatus(`Call failed`);
+      setError(`${error.message || "Unknown error"}`);
     }
-  }
+  };
 
   const handleHangup = () => {
     if (callRef.current) {
-      callRef.current.disconnect()
+      callRef.current.disconnect();
     }
-  }
+  };
 
   const handleToggleMute = () => {
     if (callRef.current) {
       if (isMuted) {
-        callRef.current.mute(false)
-        setIsMuted(false)
+        callRef.current.mute(false);
+        setIsMuted(false);
       } else {
-        callRef.current.mute(true)
-        setIsMuted(true)
+        callRef.current.mute(true);
+        setIsMuted(true);
       }
     }
-  }
+  };
 
   const handleRetry = () => {
-    window.location.reload()
-  }
+    window.location.reload();
+  };
 
   const handleHistoryItemClick = (phoneNumber: string) => {
-    setPhoneNumber(phoneNumber)
-  }
+    setPhoneNumber(phoneNumber);
+  };
 
   return (
     <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
@@ -296,7 +307,10 @@ const Dialer: React.FC<DialerProps> = () => {
             {isCallInProgress && (
               <div className="mt-2 text-center">
                 <p className="text-sm font-medium text-gray-700">
-                  Duration: <span className="font-bold">{formatCallDuration(callDuration)}</span>
+                  Duration:{" "}
+                  <span className="font-bold">
+                    {formatCallDuration(callDuration)}
+                  </span>
                 </p>
               </div>
             )}
@@ -305,7 +319,9 @@ const Dialer: React.FC<DialerProps> = () => {
           {/* Call history */}
           {callHistory.length > 0 && (
             <div className="border-b">
-              <h2 className="px-4 py-2 bg-gray-100 font-medium text-gray-700">Recent Calls</h2>
+              <h2 className="px-4 py-2 bg-gray-100 font-medium text-gray-700">
+                Recent Calls
+              </h2>
               <ul className="divide-y divide-gray-200">
                 {callHistory.map((entry, index) => (
                   <li
@@ -314,11 +330,17 @@ const Dialer: React.FC<DialerProps> = () => {
                     onClick={() => handleHistoryItemClick(entry.phoneNumber)}
                   >
                     <div>
-                      <p className="font-medium text-[#0078d4]">{entry.phoneNumber}</p>
-                      <p className="text-xs text-gray-500">{formatTimestamp(entry.timestamp)}</p>
+                      <p className="font-medium text-[#0078d4]">
+                        {entry.phoneNumber}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatTimestamp(entry.timestamp)}
+                      </p>
                     </div>
                     {entry.duration !== undefined && (
-                      <span className="text-sm text-gray-500">{formatCallDuration(entry.duration)}</span>
+                      <span className="text-sm text-gray-500">
+                        {formatCallDuration(entry.duration)}
+                      </span>
                     )}
                   </li>
                 ))}
@@ -354,7 +376,9 @@ const Dialer: React.FC<DialerProps> = () => {
                 <button
                   onClick={handleToggleMute}
                   className={`w-14 h-14 rounded-full ${
-                    isMuted ? "bg-yellow-500 hover:bg-yellow-600" : "bg-gray-500 hover:bg-gray-600"
+                    isMuted
+                      ? "bg-yellow-500 hover:bg-yellow-600"
+                      : "bg-gray-500 hover:bg-gray-600"
                   } text-white flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2`}
                 >
                   <svg
@@ -383,7 +407,12 @@ const Dialer: React.FC<DialerProps> = () => {
                     viewBox="0 0 24 24"
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -393,14 +422,17 @@ const Dialer: React.FC<DialerProps> = () => {
           {status === "Ready" && !isCallInProgress && (
             <div className="px-4 pb-4">
               <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded">
-                <p className="text-sm">Dialer is ready. Enter a phone number or select from recent calls.</p>
+                <p className="text-sm">
+                  Dialer is ready. Enter a phone number or select from recent
+                  calls.
+                </p>
               </div>
             </div>
           )}
         </>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Dialer
+export default Dialer;
